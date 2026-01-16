@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 
 type Business = { id: number; name: string }
-type Person = { id: number; name: string; business: Business }
+type Person = { id: number; name: string }
 type Task = {
   id: number
   title: string
@@ -14,41 +14,10 @@ type Task = {
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
-  const [businesses, setBusinesses] = useState<Business[]>([])
-  const [people, setPeople] = useState<Person[]>([])
-  const [title, setTitle] = useState("")
-  const [businessId, setBusinessId] = useState("")
-  const [personId, setPersonId] = useState("")
 
-  async function loadData() {
-    const [taskRes, bizRes, peopleRes] = await Promise.all([
-      fetch("/api/tasks"),
-      fetch("/api/businesses"),
-      fetch("/api/people"),
-    ])
-
-    setTasks(await taskRes.json())
-    setBusinesses(await bizRes.json())
-    setPeople(await peopleRes.json())
-  }
-
-  async function createTask(e: React.FormEvent) {
-    e.preventDefault()
-
-    await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        businessId,
-        personId,
-      }),
-    })
-
-    setTitle("")
-    setBusinessId("")
-    setPersonId("")
-    loadData()
+  async function loadTasks() {
+    const res = await fetch("/api/tasks")
+    setTasks(await res.json())
   }
 
   async function toggleTask(task: Task) {
@@ -57,97 +26,91 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !task.completed }),
     })
-
-    loadData()
-  }
-
-  async function deleteTask(id: number) {
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" })
-    loadData()
+    loadTasks()
   }
 
   useEffect(() => {
-    loadData()
+    loadTasks()
   }, [])
 
+  const openTasks = tasks.filter(t => !t.completed)
+  const completedTasks = tasks.filter(t => t.completed)
+
+  function renderFor(task: Task) {
+    if (task.person) return `👤 ${task.person.name}`
+    if (task.business) return `🏢 ${task.business.name}`
+    return "—"
+  }
+
   return (
-    <div className="p-8 max-w-2xl space-y-6">
+    <div className="p-8 space-y-12">
       <h1 className="text-xl font-bold">Tasks</h1>
 
-      <form onSubmit={createTask} className="space-y-2">
-        <input
-          className="border p-2 w-full"
-          placeholder="Task title"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-        />
+      {/* OPEN TASKS */}
+      <section>
+        <h2 className="font-semibold mb-4">Open Tasks List</h2>
 
-        <select
-          className="border p-2 w-full"
-          value={businessId}
-          onChange={e => setBusinessId(e.target.value)}
-        >
-          <option value="">Assign to business (optional)</option>
-          {businesses.map(b => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+        <table className="w-full border">
+          <thead className="bg-blue-200">
+            <tr>
+              <th className="p-2 text-left">Task Name</th>
+              <th className="p-2 text-left">For</th>
+              <th className="p-2 text-left">Status</th>
+              <th className="p-2 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {openTasks.map(task => (
+              <tr key={task.id} className="border-t">
+                <td className="p-2">{task.title}</td>
+                <td className="p-2">{renderFor(task)}</td>
+                <td className="p-2">Open</td>
+                <td className="p-2">
+                  <button
+                    onClick={() => toggleTask(task)}
+                    className="bg-green-500 text-white px-3 py-1 rounded"
+                  >
+                    Complete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
-        <select
-          className="border p-2 w-full"
-          value={personId}
-          onChange={e => setPersonId(e.target.value)}
-        >
-          <option value="">Assign to person (optional)</option>
-          {people.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.name} ({p.business.name})
-            </option>
-          ))}
-        </select>
+      {/* COMPLETED TASKS */}
+      <section>
+        <h2 className="font-semibold mb-4">Completed Tasks List</h2>
 
-        <button className="bg-black text-white px-4 py-2 w-full">
-          Add Task
-        </button>
-      </form>
-
-      <ul className="space-y-2">
-        {tasks.map(t => (
-          <li
-            key={t.id}
-            className="flex justify-between items-center border p-2"
-          >
-            <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={t.completed}
-                  onChange={() => toggleTask(t)}
-                />
-                <span className={t.completed ? "line-through" : ""}>
-                  {t.title}
-                </span>
-              </label>
-              <div className="text-sm text-gray-500">
-                {t.person
-                  ? `Person: ${t.person.name}`
-                  : t.business
-                  ? `Business: ${t.business.name}`
-                  : "Unassigned"}
-              </div>
-            </div>
-
-            <button
-              onClick={() => deleteTask(t.id)}
-              className="text-red-500"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
+        <table className="w-full border">
+          <thead className="bg-blue-200">
+            <tr>
+              <th className="p-2 text-left">Task Name</th>
+              <th className="p-2 text-left">For</th>
+              <th className="p-2 text-left">Status</th>
+              <th className="p-2 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completedTasks.map(task => (
+              <tr key={task.id} className="border-t">
+                <td className="p-2">{task.title}</td>
+                <td className="p-2">{renderFor(task)}</td>
+                <td className="p-2">Completed</td>
+                <td className="p-2">
+                  <button
+                    onClick={() => toggleTask(task)}
+                    className="bg-red-500 text-white px-3 py-1 rounded"
+                  >
+                    Re-open
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </div>
   )
 }
